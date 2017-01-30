@@ -70,6 +70,9 @@ def handle_command(command, channel):
         returns back what it needs for clarification.
     """
     #print 'command = %s' % command
+    with open(config['tmp_msg'], 'w') as tmp_file:
+        tmp_file.write('{ "command": "%s", "channel": "%s" }' % (command, channel))
+        tmp_file.truncate()
     response = "Not sure what you mean. This is ment to be used by Sam only to send messages to work. Please do not mess with. Thank you! -Sam"
     if command.startswith(EXAMPLE_COMMAND):
         response = write_to_board(command)
@@ -97,6 +100,19 @@ def parse_slack_output(slack_rtm_output):
 
 if __name__ == "__main__":
     led = False
+
+    # First start
+    # if Crashed and still durring work hours.
+    if os.path.isfile(config['tmp_msg']):
+        if datetime.datetime.now().hour > 7 and datetime.datetime.now().hour < 18:
+            with open(config['tmp_msg']) as tmp_file:
+                handle_command(tmp_file['command',tmp_file['channel'])
+
+    # Post to the chat the local IP for maintence.
+    ip = [(s.connect(('8.8.8.8', 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+    slack_client.api_call("chat.postMessage",channel=config['channel'], text=ip, as_user=True)
+
+
     READ_WEBSOCKET_DELAY = 1 # 1 second delay between reading from firehose
     if slack_client.rtm_connect():
         print("SlackBot connected and running!")
