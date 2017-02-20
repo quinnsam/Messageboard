@@ -1,12 +1,18 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import os
 import time
+import datetime
 import json
+import socket
+import requests
 import Adafruit_CharLCD as LCD
 from slackclient import SlackClient
 from sys import exit
 
 try:
-    with open('/home/squinn/projects/messageboard/msg_conf.json') as data_file:
+    with open('/home/squinn/projects/Messageboard/msg_conf.json') as data_file:
         config = json.load(data_file)
 except:
     print 'ERROR: Could not load config file'
@@ -46,9 +52,26 @@ lcd.set_backlight(0)
 # Clear the display
 lcd.clear()
 
+def get_weather():
+    url = config['weather_url']
+
+    try:
+        r = requests.get(url)
+    except:
+        return ''
+
+    return '%s Weather:; %s; HI:%s LO:%s' % (r.json()['name'],r.json()['weather'][0]['description'], r.json()['main']['temp_max'], r.json()['main']['temp_min'])
+
+
+
 def write_to_board(msg):
     lcd.clear()
     msg = msg.replace('write ','',1)
+    msg = msg.replace('curr_weather', get_weather(), 1)
+    msg = msg.replace("Event starting in 15 minutes\n&gt;&gt;&gt;\n",'Sam is in a meeting; ')
+    msg = msg.replace('\n', '; ')
+    if 'Sam is in a meeting' in msg:
+        msg = msg.replace('pm', 'pm;', 1)
     msg = msg.split('; ')
     ret = 'Sure I will write that to the board now: ```'
     print msg
@@ -70,9 +93,10 @@ def handle_command(command, channel):
         returns back what it needs for clarification.
     """
     #print 'command = %s' % command
-    with open(config['tmp_msg'], 'w') as tmp_file:
-        tmp_file.write('{ "command": "%s", "channel": "%s" }' % (command, channel))
-        tmp_file.truncate()
+    if not 'Event starting in 15 minutes' in command:
+        with open(config['tmp_msg'], 'w') as tmp_file:
+            tmp_file.write('{ "command": "%s", "channel": "%s" }' % (command, channel))
+            tmp_file.truncate()
     response = "Not sure what you mean. This is ment to be used by Sam only to send messages to work. Please do not mess with. Thank you! -Sam"
     if command.startswith(EXAMPLE_COMMAND):
         response = write_to_board(command)
@@ -90,11 +114,14 @@ def parse_slack_output(slack_rtm_output):
     output_list = slack_rtm_output
     if output_list and len(output_list) > 0:
         for output in output_list:
+            #print output
             if output and 'text' in output and AT_BOT in output['text']:
                 # return text after the @ mention, whitespace removed
                 return output['text'].split(AT_BOT)[1].strip(), output['channel']
             if output and 'username' in output and output['username'] == 'IFTTT' and AT_BOT_IFTTT in output['attachments'][0]['pretext']:
                 return output['attachments'][0]['pretext'].split(AT_BOT_IFTTT)[1].strip(), output['channel']
+            if output and 'username' in output and output['username'] == 'Cronofy Calendar API - Exchange':
+                return 'write ' + output['text'].strip(), output['channel']
     return None, None
 
 
@@ -105,8 +132,10 @@ if __name__ == "__main__":
     # if Crashed and still durring work hours.
     if os.path.isfile(config['tmp_msg']):
         if datetime.datetime.now().hour > 7 and datetime.datetime.now().hour < 18:
-            with open(config['tmp_msg']) as tmp_file:
-                handle_command(tmp_file['command',tmp_file['channel'])
+            if os.path.isfile(config['tmp_msg']):
+                with open(config['tmp_msg']) as tmp_file_fd:
+                    tmp_file = json.load(tmp_file_fd)
+                handle_command(tmp_file['command'],tmp_file['channel'])
 
     # Post to the chat the local IP for maintence.
     ip = [(s.connect(('8.8.8.8', 53)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
@@ -122,7 +151,7 @@ if __name__ == "__main__":
                 handle_command(command, channel)
             time.sleep(READ_WEBSOCKET_DELAY)
 
-            if datetime.datetime.now().hour > 18:
+            if datetime.datetime.now().hour > 17 or datetime.datetime.now().hour < 7:
                 # Turn off the Backligt
                 lcd.set_backlight(1)
             else:
