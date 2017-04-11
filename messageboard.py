@@ -12,7 +12,7 @@ from slackclient import SlackClient
 from sys import exit
 
 try:
-    with open('/home/squinn/projects/Messageboard/msg_conf.json') as data_file:
+    with open('/home/pi/Documents/projects/Messageboard/msg_conf.json') as data_file:
         config = json.load(data_file)
 except:
     print 'ERROR: Could not load config file'
@@ -31,13 +31,23 @@ slack_client = SlackClient(config['SLACK_BOT_TOKEN'])
 
 ####################
 # BeagleBone Black configuration:
-lcd_rs        = 'P8_8'
-lcd_en        = 'P8_10'
-lcd_d4        = 'P8_18'
-lcd_d5        = 'P8_16'
-lcd_d6        = 'P8_14'
-lcd_d7        = 'P8_12'
-lcd_backlight = 'P8_7'
+#lcd_rs        = 'P8_8'
+#lcd_en        = 'P8_10'
+#lcd_d4        = 'P8_18'
+#lcd_d5        = 'P8_16'
+#lcd_d6        = 'P8_14'
+#lcd_d7        = 'P8_12'
+#lcd_backlight = 'P8_7'
+
+
+# Raspberry Pi pin configuration:
+lcd_rs        = 27  # Note this might need to be changed to 21 for older revision Pi's.
+lcd_en        = 22
+lcd_d4        = 25
+lcd_d5        = 24
+lcd_d6        = 23
+lcd_d7        = 18
+lcd_backlight = 4
 
 # Define LCD column and row size for 20x4 LCD.
 lcd_columns = 20
@@ -60,7 +70,12 @@ def get_weather():
     except:
         return ''
 
-    return '%s Weather:; %s; HI:%s LO:%s' % (r.json()['name'],r.json()['weather'][0]['description'], r.json()['main']['temp_max'], r.json()['main']['temp_min'])
+    city = r.json()['current_observation']['display_location']['city']
+    temp = r.json()['current_observation']['temp_f']
+    humidity = r.json()['current_observation']['relative_humidity']
+    weather = r.json()['current_observation']['weather']
+
+    return '%s Weather:; %s; Temp:%sF Hum:%s' % (city, weather, temp, humidity)
 
 
 
