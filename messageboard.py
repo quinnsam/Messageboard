@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import os
+import re
 import time
 import datetime
 import json
+import threading
 import socket
 import requests
 import Adafruit_CharLCD as LCD
@@ -62,6 +64,14 @@ lcd.set_backlight(0)
 # Clear the display
 lcd.clear()
 
+def worker_wait(td):
+    #print td
+    time.sleep(td)
+    if os.path.isfile(config['tmp_msg']):
+        with open(config['tmp_msg']) as tmp_file_fd:
+            tmp_file = json.load(tmp_file_fd)
+        handle_command(tmp_file['command'],tmp_file['channel'])
+
 def get_weather():
     url = config['weather_url']
 
@@ -81,15 +91,30 @@ def get_weather():
 
 def write_to_board(msg):
     lcd.clear()
+    #print "msg - %s" % msg
+    if 'EV Charge' in msg:
+        return 0
     msg = msg.replace('write ','',1)
     msg = msg.replace('curr_weather', get_weather(), 1)
-    msg = msg.replace("Event starting in 15 minutes\n&gt;&gt;&gt;\n",'Sam is in a meeting; ')
-    msg = msg.replace('\n', '; ')
+    msg = msg.replace("Event starting now\n&gt;&gt;&gt;\n",'Sam is in a meeting; ')
     if 'Sam is in a meeting' in msg:
-        msg = msg.replace('pm', 'pm;', 1)
+        # start with msg in format ('Sam is in a meeting; *RSVP Required - FAC *\n<!date^1492210800^{date_short}|Apr 14> from <!date^1492210800^{time}| 4:00pm> to <!date^1492215300^{time}| 5:15pm>')
+        mt = msg.split('\n')[1] # get only the second part of the meeting with the date objects, format (<!date^1492210800^{date_short}|Apr 14> from <!date^1492210800^{time}| 4:00pm> to <!date^1492215300^{time}| 5:15pm>)
+        msg = msg.split('\n')[0] # set msg to only the begining (Sam is in a meeting; *RSVP Required - FAC *)
+        ma = re.findall('\<\!date\^[0-9]*\^', mt) # create a list formated like ([u'<!date^1492210800^', u'<!date^1492210800^', u'<!date^1492215300^'])
+        ms = datetime.datetime.fromtimestamp(float(ma[1].strip('<!date^'))) # get meeting start in Unix timestamp format
+        me = datetime.datetime.fromtimestamp(float(ma[-1].strip('<!date^'))) # get meeting end in Unix timestamp format
+        td = me - datetime.datetime.now() # get timedelta from now to wait in secconds.
+        if td.seconds > 0:
+            # Start wait thread.
+            thread = threading.Thread(target=worker_wait,args=(td.seconds,))
+            thread.start()
+        # add a newline between from and to
+        msg = msg + '; From: %s; To: %s' % (ms.strftime('%H:%M'), me.strftime('%H:%M'))
+    msg = msg.replace('\n', '; ')
     msg = msg.split('; ')
     ret = 'Sure I will write that to the board now: ```'
-    print msg
+    #print msg
     if len(msg) > 4:
         return 'Currently not supported more than 4 lines'
     else:
@@ -108,7 +133,7 @@ def handle_command(command, channel):
         returns back what it needs for clarification.
     """
     #print 'command = %s' % command
-    if not 'Event starting in 15 minutes' in command:
+    if not 'Event starting now' in command:
         with open(config['tmp_msg'], 'w') as tmp_file:
             tmp_file.write('{ "command": "%s", "channel": "%s" }' % (command, channel))
             tmp_file.truncate()
@@ -129,7 +154,7 @@ def parse_slack_output(slack_rtm_output):
     output_list = slack_rtm_output
     if output_list and len(output_list) > 0:
         for output in output_list:
-            #print output
+            #print "output - %s" % output
             if output and 'text' in output and AT_BOT in output['text']:
                 # return text after the @ mention, whitespace removed
                 return output['text'].split(AT_BOT)[1].strip(), output['channel']
