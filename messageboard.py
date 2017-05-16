@@ -205,7 +205,11 @@ if __name__ == "__main__":
                 lcd.set_backlight(0)
 
             if datetime.datetime.now().hour == upd_weather and 'curr_weather' in curr_message:
-                upd_weather = datetime.datetime.now().hour + 1
+                if upd_weather == 23:
+                    upd_weather = 0
+                else:
+                    upd_weather = datetime.datetime.now().hour + 1
+
                 write_to_board(curr_message)
 
     else:
