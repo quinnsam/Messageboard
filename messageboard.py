@@ -55,6 +55,9 @@ lcd_backlight = 4
 lcd_columns = 20
 lcd_rows    = 4
 
+# Gloabals
+curr_message = ''
+
 # Initialize the LCD using the pins above.
 lcd = LCD.Adafruit_CharLCD(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7,
                            lcd_columns, lcd_rows, lcd_backlight)
@@ -90,6 +93,8 @@ def get_weather():
 
 
 def write_to_board(msg):
+    global curr_message
+    curr_message = msg
     lcd.clear()
     #print "msg - %s" % msg
     if 'EV Charge' in msg:
@@ -167,6 +172,7 @@ def parse_slack_output(slack_rtm_output):
 
 if __name__ == "__main__":
     led = False
+    upd_weather = datetime.datetime.now().hour + 1
 
     # First start
     # if Crashed and still durring work hours.
@@ -197,6 +203,10 @@ if __name__ == "__main__":
             else:
                 # Turn on the Backligt
                 lcd.set_backlight(0)
+
+            if datetime.datetime.now().hour == upd_weather and 'curr_weather' in curr_message:
+                upd_weather = datetime.datetime.now().hour + 1
+                write_to_board(curr_message)
 
     else:
         print("Connection failed. Invalid Slack token or bot ID?")
