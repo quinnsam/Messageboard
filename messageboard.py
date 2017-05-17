@@ -94,11 +94,13 @@ def get_weather():
 
 def write_to_board(msg):
     global curr_message
-    curr_message = msg
-    lcd.clear()
     #print "msg - %s" % msg
     if 'EV Charge' in msg:
         return 0
+
+    curr_message = msg
+    lcd.clear()
+
     msg = msg.replace('write ','',1)
     msg = msg.replace('curr_weather', get_weather(), 1)
     msg = msg.replace("Event starting now\n&gt;&gt;&gt;\n",'Sam is in a meeting; ')
