@@ -174,7 +174,8 @@ def parse_slack_output(slack_rtm_output):
 
 if __name__ == "__main__":
     led = False
-    upd_weather = datetime.datetime.now().hour + 1
+    fail_count = 0
+    upd_weather = datetime.datetime.now().hour
 
     # First start
     # if Crashed and still durring work hours.
@@ -190,11 +191,20 @@ if __name__ == "__main__":
     slack_client.api_call("chat.postMessage",channel=config['channel'], text=ip, as_user=True)
 
 
-    READ_WEBSOCKET_DELAY = 1 # 1 second delay between reading from firehose
+    READ_WEBSOCKET_DELAY = 2 # 1 second delay between reading from firehose
     if slack_client.rtm_connect():
         print("SlackBot connected and running!")
         while True:
-            command, channel = parse_slack_output(slack_client.rtm_read())
+            try:
+                command, channel = parse_slack_output(slack_client.rtm_read())
+                fail_count = 0
+            except Exception as e:
+                if fail_count > 5:
+                    print type(e)
+                    print e
+                    sys.exit(1)
+                fail_count = fail_count + 1
+
             if command and channel:
                 handle_command(command, channel)
             time.sleep(READ_WEBSOCKET_DELAY)
@@ -206,13 +216,13 @@ if __name__ == "__main__":
                 # Turn on the Backligt
                 lcd.set_backlight(0)
 
-            if datetime.datetime.now().hour == upd_weather and 'curr_weather' in curr_message:
-                if upd_weather == 23:
-                    upd_weather = 0
-                else:
-                    upd_weather = datetime.datetime.now().hour + 1
+                if (datetime.datetime.now().hour > upd_weather or datetime.datetime.now().hour == 0) and 'curr_weather' in curr_message:
+                    if datetime.datetime.now().hour == 0:
+                        upd_weather = 1
+                    else:
+                        upd_weather = datetime.datetime.now().hour
 
-                write_to_board(curr_message)
+                    write_to_board(curr_message)
 
     else:
         print("Connection failed. Invalid Slack token or bot ID?")
