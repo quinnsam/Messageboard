@@ -175,8 +175,7 @@ def parse_slack_output(slack_rtm_output):
 if __name__ == "__main__":
     led = False
     fail_count = 0
-    upd_weather = datetime.datetime.now().hour
-
+    upd_weather = 0
     # First start
     # if Crashed and still durring work hours.
     if os.path.isfile(config['tmp_msg']):
@@ -212,16 +211,13 @@ if __name__ == "__main__":
             if datetime.datetime.now().hour > 17 or datetime.datetime.now().hour < 7:
                 # Turn off the Backligt
                 lcd.set_backlight(1)
+                upd_weather = 0
             else:
                 # Turn on the Backligt
                 lcd.set_backlight(0)
 
-                if (datetime.datetime.now().hour > upd_weather or datetime.datetime.now().hour == 0) and 'curr_weather' in curr_message:
-                    if datetime.datetime.now().hour == 0:
-                        upd_weather = 1
-                    else:
-                        upd_weather = datetime.datetime.now().hour
-
+                if datetime.datetime.now().hour > upd_weather and 'curr_weather' in curr_message:
+                    upd_weather = datetime.datetime.now().hour
                     write_to_board(curr_message)
 
     else:
