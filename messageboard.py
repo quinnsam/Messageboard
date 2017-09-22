@@ -95,7 +95,7 @@ def get_weather():
 def write_to_board(msg):
     global curr_message
     #print "msg - %s" % msg
-    if 'EV Charge' in msg:
+    if 'EV Charge' in msg or 'Cancelled' in msg:
         return 0
 
     curr_message = msg
@@ -148,7 +148,8 @@ def handle_command(command, channel):
     if command.startswith(EXAMPLE_COMMAND):
         response = write_to_board(command)
 
-    slack_client.api_call("chat.postMessage", channel=channel,
+    if response != 0:
+        slack_client.api_call("chat.postMessage", channel=channel,
                           text=response, as_user=True)
 
 
@@ -161,13 +162,28 @@ def parse_slack_output(slack_rtm_output):
     output_list = slack_rtm_output
     if output_list and len(output_list) > 0:
         for output in output_list:
-            #print "output - %s" % output
+            print "output - %s" % output
+
+            # Normal slack message parsing.
             if output and 'text' in output and AT_BOT in output['text']:
+                print '!!!!! Normal message parsing !!!!!'
                 # return text after the @ mention, whitespace removed
                 return output['text'].split(AT_BOT)[1].strip(), output['channel']
-            if output and 'username' in output and output['username'] == 'IFTTT' and AT_BOT_IFTTT in output['attachments'][0]['pretext']:
-                return output['attachments'][0]['pretext'].split(AT_BOT_IFTTT)[1].strip(), output['channel']
+
+            # Normal slack message parsing if AT_BOT doesn't parse
+            if output and 'text' in output and '@messageboard' in output['text']:
+                print '!!!!! Normal message parsing without AT_BOT !!!!!'
+                # return text after the @ mention, whitespace removed
+                return output['text'].split('@messageboard')[1].strip(), output['channel']
+
+            # IFTTT message parsing.
+            if output and 'username' in output and output['username'] == 'IFTTT' and AT_BOT in output['attachments'][0]['pretext']:
+                print '!!!!! IFTTT !!!!!'
+                return output['attachments'][0]['pretext'].split(AT_BOT)[1].strip(), output['channel']
+
+            # Calendar bot parsing.
             if output and 'username' in output and output['username'] == 'Cronofy Calendar API - Exchange':
+                print '!!!!! Calendar !!!!!'
                 return 'write ' + output['text'].strip(), output['channel']
     return None, None
 
@@ -190,7 +206,7 @@ if __name__ == "__main__":
     slack_client.api_call("chat.postMessage",channel=config['channel'], text=ip, as_user=True)
 
 
-    READ_WEBSOCKET_DELAY = 2 # 1 second delay between reading from firehose
+    READ_WEBSOCKET_DELAY = 1 # 1 second delay between reading from firehose
     if slack_client.rtm_connect():
         print("SlackBot connected and running!")
         while True:
