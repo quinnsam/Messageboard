@@ -162,28 +162,28 @@ def parse_slack_output(slack_rtm_output):
     output_list = slack_rtm_output
     if output_list and len(output_list) > 0:
         for output in output_list:
-            print "output - %s" % output
+            #print "output - %s" % output
 
             # Normal slack message parsing.
             if output and 'text' in output and AT_BOT in output['text']:
-                print '!!!!! Normal message parsing !!!!!'
+                #print '!!!!! Normal message parsing !!!!!'
                 # return text after the @ mention, whitespace removed
                 return output['text'].split(AT_BOT)[1].strip(), output['channel']
 
             # Normal slack message parsing if AT_BOT doesn't parse
             if output and 'text' in output and '@messageboard' in output['text']:
-                print '!!!!! Normal message parsing without AT_BOT !!!!!'
+                #print '!!!!! Normal message parsing without AT_BOT !!!!!'
                 # return text after the @ mention, whitespace removed
                 return output['text'].split('@messageboard')[1].strip(), output['channel']
 
             # IFTTT message parsing.
             if output and 'username' in output and output['username'] == 'IFTTT' and AT_BOT in output['attachments'][0]['pretext']:
-                print '!!!!! IFTTT !!!!!'
+                #print '!!!!! IFTTT !!!!!'
                 return output['attachments'][0]['pretext'].split(AT_BOT)[1].strip(), output['channel']
 
             # Calendar bot parsing.
             if output and 'username' in output and output['username'] == 'Cronofy Calendar API - Exchange':
-                print '!!!!! Calendar !!!!!'
+                #print '!!!!! Calendar !!!!!'
                 return 'write ' + output['text'].strip(), output['channel']
     return None, None
 
